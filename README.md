@@ -25,6 +25,18 @@ load 6000's step saved weights to run test.
 
 # Result
 
+Baseline. 840B 300d Glove, biLSTM encoder + 3 layer of neural net
+> train=88.8, dev=80.35, test=80.6 @ 11k
+
+
+Reproducing (Bowman 15) result
+> 100d LSTM RNN
+> train 84.8, dev 77.6
+>
+> 150d LSTM RNN
+> 
+
+
 Reproducing (Rocktaschel 16) result
 > Conditional encoding, shared: Train, Dev, Test : 72
 
