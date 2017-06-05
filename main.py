@@ -26,7 +26,7 @@ from pprint import pprint
 import slackweb
 # slack web hook for notifying training progress log. 
 slack = slackweb.Slack(url=os.environ['TRAINING_SLACK_NOTI_URL'])
-header= "snli" # description for this training. 
+header= "snli_encdec_multitask" # description for this training. 
  
 
 
@@ -61,7 +61,7 @@ flags.DEFINE_float("th", 0.5, "Threshold [0.5]")
 
 
 # Training / test parameters
-flags.DEFINE_integer("batch_size", 1000, "Batch size [1000]")
+flags.DEFINE_integer("batch_size", 500, "Batch size [1000]")
 flags.DEFINE_integer("val_num_batches", 0, "validation num batches [0]. "+ \
     "Use non-zero value to run evaluation on subset of the validation set.")
 flags.DEFINE_integer("test_num_batches", 0, "test num batches [0]")
@@ -92,7 +92,7 @@ flags.DEFINE_bool("cpu_opt", False, "CPU optimization? GPU computation can be sl
 # Logging and saving options
 flags.DEFINE_boolean("progress", True, "Show progress? [True]")
 flags.DEFINE_integer("log_period", 100, "Log period [100]")
-flags.DEFINE_integer("eval_period", 1000, "Eval period [1000]")
+flags.DEFINE_integer("eval_period", 100, "Eval period [1000]")
 flags.DEFINE_integer("save_period", 1000, "Save Period [1000]")
 flags.DEFINE_integer("max_to_keep", 20, "Max recent saves to keep [20]")
 flags.DEFINE_bool("dump_eval", True, "dump eval? [True]")

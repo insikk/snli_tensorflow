@@ -7,6 +7,7 @@ import tensorflow as tf
 from read_data import DataSet
 from tensorflow.contrib.rnn import BasicLSTMCell, LSTMStateTuple
 from tensorflow.python.ops.rnn import dynamic_rnn
+import tensorflow.contrib.seq2seq as seq2seq
 
 from mytensorflow import get_initializer
 from rnn import get_last_relevant_rnn_output, get_sequence_length
@@ -34,6 +35,11 @@ class Model(object):
         N, JX, VW, VC, W = \
             config.batch_size, config.max_sent_size, \
             config.word_vocab_size, config.char_vocab_size, config.max_word_size
+
+        self.vocab_size = config.total_word_vocab_size
+        print("In model vocab size:", config.total_word_vocab_size)
+
+
         self.x = tf.placeholder('int32', [N, None], name='x')
         self.cx = tf.placeholder('int32', [N, None, W], name='cx')
         self.x_mask = tf.placeholder('bool', [N, None], name='x_mask')
@@ -170,6 +176,9 @@ class Model(object):
 
         self.x_output, self.x_state = self._encoder(xx, self.x_length)
         self.y_output, self.y_state = self._encoder(yy, self.y_length, reuse=True) # use the same sentence encoder.
+
+        _, self.x_dec_loss = self._decoder(self.x_state, self.x, xx, self.x_length)
+        _, self.y_dec_loss = self._decoder(self.y_state, self.y, yy, self.y_length, reuse=True) # use the same sentence decoder.
         
         length = get_sequence_length(self.x_output)
         self.X = get_last_relevant_rnn_output(self.x_output, length)
@@ -197,90 +206,62 @@ class Model(object):
 
         print("logits:", self.logits)
 
-    def _enc_dec(input_sequence):
+    def _decoder(self, init_state, target_sequence, target_sequence_emb, target_length, reuse=False):
         """
+        target_sequence: index of word sequence. x1, x2, ..., x_n
+        target_sequence_emb: embedding of word sequence. x1, x2, ..., x_n
+
         return: (sent_repr, loss)
             sent_repr: hidden layer output of sentence encoder
             loss: reconstruction loss. You can use this loss for multi-task learning. Or you could just use encoder part.
         """
         
-        # create. auto encoder style. target_ouptut
-        self.encoder_inputs_embedded = xx        # x1, x2, ..., x_n
-        self.decoder_train_inputs_embedded = yy  # <GO>, x1, x2, ..., x_(n-1)
-        self.decoder_train_length = self.y_length
-        self.decoder_train_targets = self.x
-  
-
-        # Sentence Encoder. 
-        with tf.variable_scope("Encoder") as scope:
-            # Using biLSTM
-            cell_fw = BasicLSTMCell(self.h_dim, state_is_tuple=True)
-            cell_fw = SwitchableDropoutWrapper(cell_fw, self.is_train, input_keep_prob = config.input_keep_prob)
-
-            cell_bw = BasicLSTMCell(self.h_dim, state_is_tuple=True)
-            cell_bw = SwitchableDropoutWrapper(cell_bw, self.is_train, input_keep_prob = config.input_keep_prob)
-
-            (encoder_outputs, encoder_state) = tf.nn.bidirectional_dynamic_rnn(cell_fw, 
-                cell_bw, 
-                inputs=encoder_inputs_embedded,
-                sequence_length=self.x_length,
-                dtype=tf.float32,
-                scope='enc')
-
-            # Join outputs since we are using a bidirectional RNN
-            encoder_outputs = tf.concat(encoder_outputs, 2)
-
-            if isinstance(self.encoder_state[0], LSTMStateTuple):
-
-                encoder_state_c = tf.concat(
-                    (self.encoder_state[0].c, self.encoder_state[1].c), 1, name='bidirectional_concat_c')
-                encoder_state_h = tf.concat(
-                    (self.encoder_state[0].h, self.encoder_state[1].h), 1, name='bidirectional_concat_h')
-                self.encoder_state = LSTMStateTuple(c=encoder_state_c, h=encoder_state_h)
-
-            self.decoder_hidden = self.h_dim*2
-
-
-
         with tf.variable_scope("Decoder") as scope:
-            decoder_cell = LSTMCell(self.decoder_hidden, state_is_tuple=True)
+            if reuse:
+                tf.get_variable_scope().reuse_variables()
 
-            helper = seq2seq.TrainingHelper(self.decoder_train_inputs_embedded, self.decoder_train_length)
+            # Its input size is self.h_dim*2 because the encoder use biLSTM. 
+            decoder_hidden = self.h_dim*2
+            decoder_cell = BasicLSTMCell(decoder_hidden, state_is_tuple=True, reuse=reuse)
+
             # Try schduled training helper. It may increase performance. 
+            length = tf.ones([tf.shape(target_sequence_emb)[0]], dtype=tf.int32) * (tf.shape(target_sequence_emb)[1]-1)
+            helper = seq2seq.TrainingHelper(target_sequence_emb, length)
 
             decoder = seq2seq.BasicDecoder(
                 cell=decoder_cell,
                 helper=helper,
-                initial_state=self.encoder_state
+                initial_state=init_state
             )
+
             # Try AttentionDecoder.
-            self.decoder_outputs_train, self.decoder_state_train = seq2seq.dynamic_decode(
+            decoder_outputs_train, decoder_state_train = seq2seq.dynamic_decode(
                     decoder, 
                     impute_finished=True,
-                    scope=scope,
+                    scope=scope
                 )
 
-            self.decoder_logits = self.decoder_outputs_train.rnn_output      
+            decoder_logits = decoder_outputs_train.rnn_output      
 
-            w_t = tf.get_variable("proj_w", [self.vocab_size, self.decoder_hidden], dtype=tf.float32)
+            w_t = tf.get_variable("proj_w", [self.vocab_size, decoder_hidden], dtype=tf.float32)
             w = tf.transpose(w_t)
             b = tf.get_variable("proj_b", [self.vocab_size], dtype=tf.float32)
-            self.output_projection = (w, b)      
+            output_projection = (w, b)      
             
-            m = tf.matmul(tf.reshape(self.decoder_logits, [-1, self.decoder_hidden]), w)
+            m = tf.matmul(tf.reshape(decoder_logits, [-1, decoder_hidden]), w)
 
-
-            self.decoder_prediction_train = tf.argmax(
-                tf.reshape(m, [N, -1, self.vocab_size]) + self.output_projection[1],
+            decoder_prediction_train = tf.argmax(
+                tf.reshape(m, [tf.shape(target_sequence)[0], -1, self.vocab_size]) + output_projection[1],
                 axis=-1, 
                 name='decoder_prediction_train')
+
         
         def sampled_loss(labels, inputs):
             labels = tf.reshape(labels, [-1, 1])
             # We need to compute the sampled_softmax_loss using 32bit floats to
             # avoid numerical instabilities.
-            local_w_t = tf.cast(tf.transpose(self.output_projection[0]), tf.float32)
-            local_b = tf.cast(self.output_projection[1], tf.float32)
+            local_w_t = tf.cast(tf.transpose(output_projection[0]), tf.float32)
+            local_b = tf.cast(output_projection[1], tf.float32)
             local_inputs = tf.cast(inputs, tf.float32)
             return tf.cast(
                 tf.nn.sampled_softmax_loss(
@@ -292,25 +273,30 @@ class Model(object):
                     num_classes=self.vocab_size),
                 tf.float32)
 
-        
+        decoder_train_targets = tf.slice(target_sequence, [0, 1], [-1, -1])
+
         loss = seq2seq.sequence_loss(
-            logits=self.decoder_logits,
-            targets=self.decoder_train_targets,
-            weights=tf.sequence_mask(self.x_length, tf.shape(self.x)[1], dtype=tf.float32, name='masks'),
+            logits=decoder_logits,
+            targets=decoder_train_targets,
+            weights=tf.sequence_mask(target_length-1, tf.shape(decoder_train_targets)[1], dtype=tf.float32, name='masks'),
             softmax_loss_function = sampled_loss,
-            name='loss'
+            name='dec_loss'
             )
 
-        return encoder_outputs, loss
+        return decoder_prediction_train, loss
         
         
     def _build_loss(self):
         config = self.config
         JX = tf.shape(self.x)[1]
         # self.z: [N, 3]
-        losses = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+        snli_classfier_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
             logits=self.logits, labels=self.z))
-        tf.add_to_collection('losses', losses)
+        tf.add_to_collection('losses', snli_classfier_loss)
+
+        # Multitask learning with enc-dec network.
+        tf.add_to_collection('losses', self.x_dec_loss)
+        tf.add_to_collection('losses', self.y_dec_loss)
 
         self.loss = tf.add_n(tf.get_collection('losses', scope=self.scope), name='loss')
         tf.summary.scalar(self.loss.op.name, self.loss)
