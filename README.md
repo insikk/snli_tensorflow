@@ -25,6 +25,14 @@ load 6000's step saved weights to run test.
 
 # Result
 
+Reproducing (Bowman 15) result
+> 100d LSTM RNN
+> train 84.8, dev 77.6
+>
+> 150d LSTM RNN
+> 
+
+
 Reproducing (Rocktaschel 16) result
 > Conditional encoding, shared: Train, Dev, Test : 72
 

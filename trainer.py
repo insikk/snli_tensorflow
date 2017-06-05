@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from model import Model
+from model_encdec import Model
 
 
 def average_gradients(tower_grads):

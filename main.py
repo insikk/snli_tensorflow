@@ -7,7 +7,7 @@ import tensorflow as tf
 from tqdm import tqdm
 
 from evaluator import MultiGPUEvaluator
-from model import get_multi_gpu_models
+from model_encdec import get_multi_gpu_models
 from graph_handler import GraphHandler
 from trainer import MultiGPUTrainer
 
@@ -214,7 +214,6 @@ def _train(config):
         global_step = sess.run(model.global_step) + 1  # +1 because all calculations are done after step
         get_summary = global_step % config.log_period == 0
         loss, summary, train_op = trainer.step(sess, batches, get_summary=get_summary)
-        print("train loss:", loss)
         if get_summary:
             graph_handler.add_summary(summary, global_step)
 
