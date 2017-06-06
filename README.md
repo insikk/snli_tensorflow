@@ -44,6 +44,9 @@ Reproducing LSTMN (Cheng 16) result
 > ????
 
 
+# TODO
+
+Reproduce any result that are reported in the paper. My implementation seems lower than 3~10% of the reported performances. 
 
 # Thanks to
 
