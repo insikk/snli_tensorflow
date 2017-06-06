@@ -295,8 +295,9 @@ class Model(object):
         tf.add_to_collection('losses', snli_classfier_loss)
 
         # Multitask learning with enc-dec network.
-        tf.add_to_collection('losses', self.x_dec_loss)
-        tf.add_to_collection('losses', self.y_dec_loss)
+        multitask_coeff_decoder = 0.01
+        tf.add_to_collection('losses', multitask_coeff_decoder*self.x_dec_loss)
+        tf.add_to_collection('losses', multitask_coeff_decoder*self.y_dec_loss)
 
         self.loss = tf.add_n(tf.get_collection('losses', scope=self.scope), name='loss')
         tf.summary.scalar(self.loss.op.name, self.loss)
