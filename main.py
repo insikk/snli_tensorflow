@@ -7,7 +7,7 @@ import tensorflow as tf
 from tqdm import tqdm
 
 from evaluator import MultiGPUEvaluator
-from model_mLSTM import get_multi_gpu_models
+from model_encdec import get_multi_gpu_models
 from graph_handler import GraphHandler
 from trainer import MultiGPUTrainer
 
@@ -202,11 +202,15 @@ def _train(config):
     trainer = MultiGPUTrainer(config, models)
     evaluator = MultiGPUEvaluator(config, models, tensor_dict=model.tensor_dict if config.vis else None)
     graph_handler = GraphHandler(config, model)  # controls all tensors and variables in the graph, including loading /saving
-
+    
+    #encoder weight save
+    _vars = tf.trainable_variables()
+    encoder_var = {var.name:var for var in _vars if "Encoder" in var.name}
+    saver = tf.train.Saver(encoder_var)   
+    
     # Variables
     sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
     graph_handler.initialize(sess)
-
     num_steps = config.num_steps or int(math.ceil(train_data.num_examples / (config.batch_size * config.num_gpus))) * config.num_epochs
     min_val = {}
     min_val['loss'] = 100.0
@@ -268,7 +272,7 @@ def _train(config):
 
             if slack is not None:
                 slack.notify(text="%s e_dev: acc=%.2f loss=%.4f" % (header, e_dev.acc, e_dev.loss))
-
+            
             if config.dump_eval:
                 graph_handler.dump_eval(e_dev)
             if config.dump_answer:
@@ -279,7 +283,6 @@ def _train(config):
      
     if global_step % config.save_period != 0:
         graph_handler.save(sess, global_step=global_step)
-
 
 
 def _test(config):

@@ -79,7 +79,7 @@ class Model(object):
         self.summary = tf.summary.merge_all()
         self.summary = tf.summary.merge(tf.get_collection("summaries", scope=self.scope))
     
-    def _encoder(self, input_seq, input_seq_length, name="", reuse=False):        
+    def _encoder(self, input_seq, input_seq_length, name="encoder", reuse=False):        
         with tf.variable_scope("Encoder") as scope:
             if reuse:
                 tf.get_variable_scope().reuse_variables()
@@ -95,7 +95,6 @@ class Model(object):
                 sequence_length=input_seq_length,
                 dtype=tf.float32,
                 scope='enc')
-
             # Join outputs since we are using a bidirectional RNN
             encoder_outputs = tf.concat(encoder_outputs, 2)
 
@@ -206,7 +205,7 @@ class Model(object):
 
         print("logits:", self.logits)
 
-    def _decoder(self, init_state, target_sequence, target_sequence_emb, target_length, reuse=False):
+    def _decoder(self, init_state, target_sequence, target_sequence_emb, target_length, name="decoder", reuse=False):
         """
         target_sequence: index of word sequence. x1, x2, ..., x_n
         target_sequence_emb: embedding of word sequence. x1, x2, ..., x_n
