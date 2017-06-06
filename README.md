@@ -50,6 +50,8 @@ Reproduce any result that are reported in the paper. My implementation seems low
 
 # Thanks to
 
+* mLSTM (match-LSTM) implementation https://github.com/fuhuamosi/MatchLstm
+
 * Keras SNLI baseline example https://github.com/Smerity/keras_snli
 
 * Attention model for entailment on SNLI corpus implemented in Tensorflow https://github.com/shyamupa/snli-entailment

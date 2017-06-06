@@ -38,7 +38,9 @@ flags = tf.app.flags
 
 # Names and directories
 
-flags.DEFINE_string("data_dir", os.path.join("..", "data", "snli_simple"), "Data dir [../data/snli_simple]")
+# flags.DEFINE_string("data_dir", os.path.join("..", "data", "snli_simple"), "Data dir [../data/snli_simple]")
+flags.DEFINE_string("data_dir", os.path.join("tiny"), "Data dir [../data/snli_simple]") # tiny sample dataset
+
 flags.DEFINE_string("model_name", "basic", "Model name [basic]")
 flags.DEFINE_string("run_id", "0", "Run ID [0]")
 flags.DEFINE_string("out_base_dir", "out", "out base dir [out]")
@@ -65,7 +67,7 @@ flags.DEFINE_float("th", 0.5, "Threshold [0.5]")
 
 
 # Training / test parameters
-flags.DEFINE_integer("batch_size", 1000, "Batch size [1000]")
+flags.DEFINE_integer("batch_size", 2, "Batch size [1000]")
 flags.DEFINE_integer("val_num_batches", 0, "validation num batches [0]. "+ \
     "Use non-zero value to run evaluation on subset of the validation set.")
 flags.DEFINE_integer("test_num_batches", 0, "test num batches [0]")
