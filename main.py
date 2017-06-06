@@ -7,7 +7,7 @@ import tensorflow as tf
 from tqdm import tqdm
 
 from evaluator import MultiGPUEvaluator
-from model_encdec import get_multi_gpu_models
+from model_mLSTM import get_multi_gpu_models
 from graph_handler import GraphHandler
 from trainer import MultiGPUTrainer
 
@@ -25,7 +25,10 @@ from pprint import pprint
 
 import slackweb
 # slack web hook for notifying training progress log. 
-slack = slackweb.Slack(url=os.environ['TRAINING_SLACK_NOTI_URL'])
+try:
+    slack = slackweb.Slack(url=os.environ['TRAINING_SLACK_NOTI_URL'])
+except KeyError:
+    slack = None
 header= "snli" # description for this training. 
  
 
@@ -34,7 +37,8 @@ flags = tf.app.flags
 
 
 # Names and directories
-flags.DEFINE_string("data_dir", "../data/snli_simple", "Data dir [../data/snli_simple]")
+
+flags.DEFINE_string("data_dir", os.path.join("..", "data", "snli_simple"), "Data dir [../data/snli_simple]")
 flags.DEFINE_string("model_name", "basic", "Model name [basic]")
 flags.DEFINE_string("run_id", "0", "Run ID [0]")
 flags.DEFINE_string("out_base_dir", "out", "out base dir [out]")
@@ -256,17 +260,20 @@ def _train(config):
             else:
                 min_val['patience'] = min_val['patience'] + 1
                 if min_val['patience'] >= 1000:
-                    slack.notify(text="%s patience reached %d. early stopping." % (header, min_val['patience']))
+                    if slack is not None:
+                        slack.notify(text="%s patience reached %d. early stopping." % (header, min_val['patience']))
                     break
 
-            slack.notify(text="%s e_dev: acc=%.2f loss=%.4f" % (header, e_dev.acc, e_dev.loss))
+            if slack is not None:
+                slack.notify(text="%s e_dev: acc=%.2f loss=%.4f" % (header, e_dev.acc, e_dev.loss))
 
             if config.dump_eval:
                 graph_handler.dump_eval(e_dev)
             if config.dump_answer:
                 graph_handler.dump_answer(e_dev)
     
-    slack.notify(text="%s <@U024BE7LH|insikk> Train is finished. e_dev: acc=%.2f loss=%.4f at step=%d\nPlease assign another task to get more research result" % (header, min_val['acc'], min_val['loss'], min_val['step']))    
+    if slack is not None:
+        slack.notify(text="%s <@U024BE7LH|insikk> Train is finished. e_dev: acc=%.2f loss=%.4f at step=%d\nPlease assign another task to get more research result" % (header, min_val['acc'], min_val['loss'], min_val['step']))    
      
     if global_step % config.save_period != 0:
         graph_handler.save(sess, global_step=global_step)
