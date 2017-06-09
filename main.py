@@ -23,10 +23,10 @@ import random
 from pprint import pprint
 
 
-import slackweb
+#import slackweb
 # slack web hook for notifying training progress log. 
-slack = slackweb.Slack(url=os.environ['TRAINING_SLACK_NOTI_URL'])
-header= "snli" # description for this training. 
+#slack = slackweb.Slack(url=os.environ['TRAINING_SLACK_NOTI_URL'])
+#header= "snli" # description for this training. 
  
 
 
@@ -256,10 +256,10 @@ def _train(config):
             else:
                 min_val['patience'] = min_val['patience'] + 1
                 if min_val['patience'] >= 1000:
-                    slack.notify(text="%s patience reached %d. early stopping." % (header, min_val['patience']))
+  #                  slack.notify(text="%s patience reached %d. early stopping." % (header, min_val['patience']))
                     break
 
-            slack.notify(text="%s e_dev: acc=%.2f loss=%.4f" % (header, e_dev.acc, e_dev.loss))
+ #           slack.notify(text="%s e_dev: acc=%.2f loss=%.4f" % (header, e_dev.acc, e_dev.loss))
 
             if config.dump_eval:
                 graph_handler.dump_eval(e_dev)
